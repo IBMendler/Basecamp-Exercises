@@ -6,9 +6,13 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "ticket_id": {"type": "string"}
+          "ticket_id": {
+            "type": "string"
+          }
         },
-        "required": ["ticket_id"]
+        "required": [
+          "ticket_id"
+        ]
       }
     },
     {
@@ -17,20 +21,28 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "email": {"type": "string"}
+          "email": {
+            "type": "string"
+          }
         },
-        "required": ["email"]
+        "required": [
+          "email"
+        ]
       }
     },
     {
       "name": "get_billing_history",
-      "description": "Billing history for a customer",
+      "description": "Invoices and payments (with transaction_id, amount, plan, date, status) plus plan changes for a customer. Use it to verify a refund claim and to find the transaction_id to refund.",
       "input_schema": {
         "type": "object",
         "properties": {
-          "customer_id": {"type": "string"}
+          "customer_id": {
+            "type": "string"
+          }
         },
-        "required": ["customer_id"]
+        "required": [
+          "customer_id"
+        ]
       }
     },
     {
@@ -39,22 +51,42 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "customer_id": {"type": "string"}
+          "customer_id": {
+            "type": "string"
+          }
         },
-        "required": ["customer_id"]
+        "required": [
+          "customer_id"
+        ]
       }
     },
     {
       "name": "issue_refund",
-      "description": "Issues a refund. Calls Stripe under the hood.",
+      "description": "Issues a refund against ONE specific transaction. Partial refunds are allowed: amount is in dollars and may be less than the original charge (for example the difference between a wrong price and the correct price). transaction_id must be the exact charge being refunded, taken from get_billing_history.",
       "input_schema": {
         "type": "object",
         "properties": {
-          "transaction_id": {"type": "string"},
-          "amount": {"type": "number"},
-          "reason": {"type": "string", "enum": ["duplicate_charge", "billing_error", "service_credit", "goodwill"]}
+          "transaction_id": {
+            "type": "string"
+          },
+          "amount": {
+            "type": "number"
+          },
+          "reason": {
+            "type": "string",
+            "enum": [
+              "duplicate_charge",
+              "billing_error",
+              "service_credit",
+              "goodwill"
+            ]
+          }
         },
-        "required": ["transaction_id", "amount", "reason"]
+        "required": [
+          "transaction_id",
+          "amount",
+          "reason"
+        ]
       }
     },
     {
@@ -63,11 +95,21 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "invoice_id": {"type": "string"},
-          "credit_amount": {"type": "number"},
-          "credit_description": {"type": "string"}
+          "invoice_id": {
+            "type": "string"
+          },
+          "credit_amount": {
+            "type": "number"
+          },
+          "credit_description": {
+            "type": "string"
+          }
         },
-        "required": ["invoice_id", "credit_amount", "credit_description"]
+        "required": [
+          "invoice_id",
+          "credit_amount",
+          "credit_description"
+        ]
       }
     },
     {
@@ -76,9 +118,13 @@
       "input_schema": {
         "type": "object",
         "properties": {
-          "customer_id": {"type": "string"}
+          "customer_id": {
+            "type": "string"
+          }
         },
-        "required": ["customer_id"]
+        "required": [
+          "customer_id"
+        ]
       }
     }
   ]

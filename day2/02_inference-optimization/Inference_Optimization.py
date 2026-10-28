@@ -135,7 +135,7 @@ import anthropic
 
 # ── Connect to Claude — Anthropic API or Amazon Bedrock ──
 # Works with either credential type; the cell figures out which you have.
-#   Anthropic API : ANTHROPIC_API_KEY=sk-ant-...
+#   Anthropic API : ANTHROPIC_API_KEY=<your key>
 #   Amazon Bedrock: AWS_BEARER_TOKEN_BEDROCK=...  plus  AWS_REGION=us-east-1
 # Put whichever you use in the .env file this cell creates (gitignored — never committed),
 # or export it in your shell. A value in the shell wins over the .env file.
@@ -183,11 +183,11 @@ for _k, _v in _file.items():
         os.environ.setdefault(_k, _v)
 
 _shell_key = os.environ.get("ANTHROPIC_API_KEY", "").strip()
-_anthropic_key = _shell_key if _shell_key.startswith("sk-ant-") else _file.get("ANTHROPIC_API_KEY", "").strip()
+_anthropic_key = _shell_key if (_shell_key and not _shell_key.startswith("paste-your-key")) else _file.get("ANTHROPIC_API_KEY", "").strip()
 _bedrock_token = os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "").strip()
 _bedrock_region = os.environ.get("AWS_REGION", "").strip()
 
-if _anthropic_key.startswith("sk-ant-"):
+if _anthropic_key and not _anthropic_key.startswith("paste-your-key"):
     PROVIDER = "anthropic"
 elif _bedrock_token:
     PROVIDER = "bedrock"
@@ -224,7 +224,7 @@ if PROVIDER is None:
         f"Open this file:  {_env_file}\n"
         "\n"
         "Using the Anthropic API? Set:\n"
-        "    ANTHROPIC_API_KEY=sk-ant-...\n"
+        "    ANTHROPIC_API_KEY=<your key>\n"
         "\n"
         "Using Amazon Bedrock? Set both:\n"
         "    AWS_BEARER_TOKEN_BEDROCK=<your Bedrock API key>\n"
@@ -252,9 +252,9 @@ def _model(name):
 
 
 # Named models the exercise uses — resolved for whichever provider you're on.
-MODEL = _model("claude-sonnet-5")        # the workhorse for this exercise
-FAST_MODEL = _model("claude-haiku-4-5")  # cheap + quick (connection check, judges)
-BIG_MODEL = _model("claude-opus-4-8")    # when you want to try a larger model
+MODEL = _model("claude-sonnet-5-5")        # the workhorse for this exercise
+FAST_MODEL = _model("claude-haiku-5-5")  # cheap + quick (connection check, judges)
+BIG_MODEL = _model("claude-sonnet-5-5")    # when you want to try a larger model
 
 
 def _make_client(timeout, max_retries=2):
@@ -287,7 +287,7 @@ except (anthropic.AuthenticationError, anthropic.PermissionDeniedError):
                        "it has Bedrock invoke permissions, then run this cell again.")
     else:
         _status(False, "That key was rejected. Run this cell again and paste the whole key "
-                       "(it starts with sk-ant-).")
+                       "(paste the whole key).")
     raise SystemExit("Credentials not accepted - re-run this cell and try again.")
 except Exception as exc:
     _status(False, "Could not reach the API (" + type(exc).__name__ + "). Check your "
@@ -423,19 +423,21 @@ print(f"TTFT {ttft*1000:.0f}ms · TTC {total*1000:.0f}ms · OTPS {otps:.1f} tok/
 #
 # | Model | Input $/MTok | Output $/MTok |
 # |---|---|---|
-# | Haiku 4.5 | $1.00 | $5.00 |
-# | Sonnet 5 | $3.00 | $15.00 |
-# | Opus 4.8 | $5.00 | $25.00 |
+# | Haiku 5.5 (prompt ≤ 100K tokens) | $0.10 | $0.50 |
+# | Haiku 5.5 (prompt > 100K tokens) | $0.50 | $2.50 |
+# | Sonnet 5.5 | $2.00 | $10.00 |
 #
 # *(Verify against the pricing page before quoting in a deliverable — table cached June 2026.
 # Batch API runs at 50% of everything; that lever arrives in Part 4.)*
 
 # %%
+# $/MTok. "long" rates apply when the whole prompt (uncached + cache reads + cache writes)
+# exceeds LONG_PROMPT_TOKENS; omit it for flat-priced models.
 PRICING = {
-    MODEL_HAIKU:  {"input": 1.00, "output": 5.00},
-    MODEL_SONNET: {"input": 3.00, "output": 15.00},
-    MODEL_OPUS:   {"input": 5.00, "output": 25.00},
+    MODEL_HAIKU:  {"input": 0.10, "output": 0.50, "long": {"input": 0.50, "output": 2.50}},
+    MODEL_SONNET: {"input": 2.00, "output": 10.00},
 }
+LONG_PROMPT_TOKENS = 100_000
 CACHE_WRITE_MULT = 1.25   # 5-minute TTL cache writes
 CACHE_READ_MULT = 0.10
 BATCH_DISCOUNT = 0.50     # Batch API: 50% off all token charges
@@ -446,6 +448,8 @@ def calculate_cost(model: str, usage) -> float:
     p = PRICING[model]
     cache_write = getattr(usage, "cache_creation_input_tokens", 0) or 0
     cache_read = getattr(usage, "cache_read_input_tokens", 0) or 0
+    if "long" in p and usage.input_tokens + cache_write + cache_read > LONG_PROMPT_TOKENS:
+        p = p["long"]
     return (
         usage.input_tokens * p["input"]
         + cache_write * p["input"] * CACHE_WRITE_MULT
@@ -946,17 +950,23 @@ print(f"\n  SLA check: p50 ≤ 5s → {sla_p50}   ·   accuracy ≥ 90% → "
 CACHED_SYSTEM = [{"type": "text", "text": PLAYBOOK, "cache_control": {"type": "ephemeral"}}]
 
 
-def cached_extract(contract, model=MODEL_SONNET):
+def cached_extract(contract, model=MODEL_SONNET, system=CACHED_SYSTEM):
     t0 = time.perf_counter()
     resp = client.messages.create(
-        model=model, max_tokens=1200, system=CACHED_SYSTEM,
+        model=model, max_tokens=1200, system=system,
         messages=[{"role": "user", "content": EXTRACT_INSTRUCTION + contract["text"]}],
     )
     return resp, time.perf_counter() - t0
 
 
+# A unique nonce makes this prefix new to the cache, so the first call is a true cold write
+# even if someone else on a shared key (or an earlier cell of yours) warmed the real playbook.
+import uuid
+DEMO_SYSTEM = [{"type": "text", "text": PLAYBOOK + f"\n<!-- cache demo {uuid.uuid4()} -->",
+                "cache_control": {"type": "ephemeral"}}]
+
 for label in ("COLD (writes cache)", "WARM (reads cache)"):
-    resp, secs = cached_extract(CONTRACTS[0])
+    resp, secs = cached_extract(CONTRACTS[0], system=DEMO_SYSTEM)
     u = resp.usage
     print(f"{label:20s} {secs*1000:6.0f}ms · uncached_in={u.input_tokens:>5} · "
           f"cache_write={u.cache_creation_input_tokens or 0:>5} · "
@@ -1027,7 +1037,7 @@ print("\nA few tenths of a cent buys the routing decision. The savings come from
 # Two dials that live in the same neighborhood:
 # - `max_tokens` — a hard ceiling; right-size it to the artifact (our JSON needs ~300, not 8000).
 # - `output_config.effort` — Sonnet/Opus accept `low`–`max` to trade depth for tokens.
-#   **It errors on Haiku 4.5** — Haiku is already the low-latency tier.
+#   **It errors on Haiku 5.5** — Haiku is already the low-latency tier.
 
 # %%
 EXTRACTION_SCHEMA = {
@@ -1059,7 +1069,7 @@ def extract_structured(contract, model=MODEL_SONNET, cached=True, effort=None):
     """One call, schema-constrained output, optional cached playbook and effort dial."""
     t0 = time.perf_counter()
     output_config = {"format": EXTRACTION_SCHEMA}
-    if effort and model != MODEL_HAIKU:   # effort errors on Haiku 4.5
+    if effort and model != MODEL_HAIKU:   # effort errors on Haiku 5.5
         output_config["effort"] = effort
     resp = client.messages.create(
         model=model, max_tokens=1000,
@@ -1205,19 +1215,19 @@ CONFIG = {
     # Lever 2 — routing. Try: triage_routing=True, routine_model=MODEL_HAIKU,
     #                         complex_model=MODEL_SONNET
     "triage_routing": False,
-    "routine_model": MODEL_OPUS,
-    "complex_model": MODEL_OPUS,
+    "routine_model": MODEL_SONNET,
+    "complex_model": MODEL_SONNET,
 
     # Lever 1 — cache the playbook prefix
-    "cache_playbook": False,
+    "cache_playbook": True,
 
     # Lever 3 + the round-trip collapse — one schema pass instead of briefing → essay → JSON
-    "structured_single_pass": False,
-    "max_tokens": 8000,           # right-size once output is disciplined (~1000)
+    "structured_single_pass": True,
+    "max_tokens": 1000,           # right-size once output is disciplined (~1000)
     "effort": None,               # "low" | "medium" | "high" — Sonnet/Opus only
 
     # Lever 5 — portfolio concurrency (0 = sequential; warm-first is automatic)
-    "parallel_workers": 0,
+    "parallel_workers": 4,
 }
 
 

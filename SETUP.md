@@ -13,7 +13,7 @@ Basecamp notebooks. **The fastest reliable path is a virtual environment in VS C
 python3 -m venv .venv                 # create an isolated environment
 source .venv/bin/activate             # macOS/Linux  (Windows: .venv\Scripts\activate)
 pip install -r requirements.txt       # install everything the exercises need
-export ANTHROPIC_API_KEY=sk-ant-...   # your key (Windows PowerShell: $env:ANTHROPIC_API_KEY="sk-ant-...")
+export ANTHROPIC_API_KEY=<your key>       # your key (Windows PowerShell: $env:ANTHROPIC_API_KEY="<your key>")
 ```
 
 **On Amazon Bedrock instead of the Anthropic API?** Same four commands, but set these
@@ -80,7 +80,7 @@ AWS_REGION=us-east-1
 `AWS_REGION` is required — Bedrock has no default. Use the region your Claude models are
 enabled in. When it connects you'll see a green banner naming the provider and region:
 **"✓ Bedrock key verified (us-east-1) — you're connected to Claude as
-anthropic.claude-sonnet-5."**
+anthropic.claude-sonnet-5-5."**
 
 Two things to know:
 
@@ -89,8 +89,8 @@ Two things to know:
   your account there. Enable it in the Bedrock console under **Model access**, or switch
   `AWS_REGION` to a region where it is. The setup cell checks this up front so you find
   out at setup rather than four cells later.
-- **Model IDs differ.** Bedrock prefixes them (`anthropic.claude-sonnet-5`); the
-  Anthropic API uses the bare ID (`claude-sonnet-5`). The notebooks handle this for you
+- **Model IDs differ.** Bedrock prefixes them (`anthropic.claude-sonnet-5-5`); the
+  Anthropic API uses the bare ID (`claude-sonnet-5-5`). The notebooks handle this for you
   via the `MODEL` / `FAST_MODEL` / `BIG_MODEL` variables the setup cell defines — use
   those rather than hardcoding an ID, and your code runs on both.
 
@@ -148,7 +148,7 @@ save, and re-run the cell. The key never touches the notebook, and it survives k
 restarts so you paste it once. A single `.env` at the repo root serves every exercise (the
 cell walks up the folders to find it). You can also set `ANTHROPIC_API_KEY` in your shell —
 it wins over the file — and if neither is set, the cell shows a hidden input box as a
-fallback. A key starts with `sk-ant-`.
+fallback.
 
 ---
 

@@ -15,9 +15,9 @@
 #
 # HOW TO RUN
 #   pip install anthropic
-#   export ANTHROPIC_API_KEY=sk-ant-...
+#   export ANTHROPIC_API_KEY=<your key>
 #   python Diagnose_Fix_Brief.py                 # run the eval, see the scoreboard
-#   python Diagnose_Fix_Brief.py --model claude-opus-4-8   # try a bigger model...
+#   python Diagnose_Fix_Brief.py --model claude-sonnet-5-5   # try a bigger model...
 #                                                          # ...watch cost rise, RESOLVED stay NO
 # =============================================================================
 
@@ -93,15 +93,15 @@ for _d in [_pl.Path.cwd().resolve(), *_pl.Path.cwd().resolve().parents]:
                 continue
             _k, _v = _line.split("=", 1)
             _k, _v = _k.strip(), _v.strip().strip('"').strip("'")
-            if _k == "ANTHROPIC_API_KEY" and not _v.startswith("sk-ant-"):
+            if _k == "ANTHROPIC_API_KEY" and _v.startswith("paste-your-key"):
                 continue  # skip the placeholder
-            if _k in ("ANTHROPIC_API_KEY", "AWS_BEARER_TOKEN_BEDROCK", "AWS_REGION"):
+            if _k in ("ANTHROPIC_API_KEY", "ANTHROPIC_BASE_URL", "AWS_BEARER_TOKEN_BEDROCK", "AWS_REGION"):
                 os.environ.setdefault(_k, _v)
         break
 
 # ── Provider resolution — Anthropic API or Amazon Bedrock ──
 # Bedrock model IDs carry an `anthropic.` prefix; the Anthropic API uses the bare ID.
-PROVIDER = "anthropic" if os.environ.get("ANTHROPIC_API_KEY", "").startswith("sk-ant-") else (
+PROVIDER = "anthropic" if (os.environ.get("ANTHROPIC_API_KEY", "").strip() not in ("", "paste-your-key-here")) else (
     "bedrock" if os.environ.get("AWS_BEARER_TOKEN_BEDROCK", "").strip() else None
 )
 
@@ -137,18 +137,14 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 # The base model. It is plenty capable — every failure in this system is
 # structural, not a model-capability ceiling. Swapping in a bigger model costs
 # more and does NOT move RESOLVED. That's the whole point of the exercise.
-MODEL = _model("claude-sonnet-5")
+MODEL = _model("claude-sonnet-5-5")
 
 # $ per 1M tokens (input, output). Used to price each run so the cost lever is visible.
 # Rates: platform.claude.com/docs/en/about-claude/pricing — add a line for any model not listed.
 # Verify against the current pricing page before quoting in a deliverable (cached June 2026).
 PRICING = {
-    "claude-fable-5":    (10.00, 50.00),
-    "claude-opus-4-8":   (5.00, 25.00),
-    "claude-opus-4-7":   (5.00, 25.00),
-    "claude-opus-4-6":   (5.00, 25.00),
-    "claude-sonnet-5":   (3.00, 15.00),
-    "claude-haiku-4-5":  (1.00, 5.00),
+    "claude-sonnet-5-5":   (3.00, 15.00),
+    "claude-haiku-5-5":  (1.00, 5.00),
 }
 
 MAX_TOKENS = 4096
@@ -651,10 +647,10 @@ def cost_of(usage, model):
     if model not in PRICING and model not in _unpriced_models_warned:
         _unpriced_models_warned.add(model)
         print(f"\n  [pricing] '{model}' is not in PRICING, so COST is computed at "
-              f"claude-sonnet-5 rates and will be wrong for this model.\n"
+              f"claude-sonnet-5-5 rates and will be wrong for this model.\n"
               f"  [pricing] Add its rates to PRICING in Diagnose_Fix_Brief.py from "
               f"https://platform.claude.com/docs/en/about-claude/pricing\n", flush=True)
-    in_rate, out_rate = PRICING.get(model, PRICING["claude-sonnet-5"])
+    in_rate, out_rate = PRICING.get(model, PRICING["claude-sonnet-5-5"])
     return (
         usage["input_tokens"] / 1e6 * in_rate
         + usage["output_tokens"] / 1e6 * out_rate
@@ -971,7 +967,7 @@ if __name__ == "__main__":
                     help="run one ticket once and write reference trace files (coordinator + specialists)")
     args = ap.parse_args()
 
-    # --model arrives as a bare id (e.g. claude-opus-4-8). Resolve it for the active
+    # --model arrives as a bare id (e.g. claude-sonnet-5-5). Resolve it for the active
     # provider so Bedrock gets the prefix it requires. The argparse default is already
     # resolved and _model() is idempotent, so this is safe either way.
     args.model = _model(args.model)
@@ -980,11 +976,11 @@ if __name__ == "__main__":
     if PROVIDER is None:
         raise SystemExit(
             "❌ No credentials found. Set one of:\n"
-            "     export ANTHROPIC_API_KEY=sk-ant-...                 # Anthropic API\n"
+            "     export ANTHROPIC_API_KEY=<your key>                 # Anthropic API\n"
             "     export AWS_BEARER_TOKEN_BEDROCK=...  AWS_REGION=... # Amazon Bedrock\n"
             "   (or put either in a .env file at the repo root), then re-run."
         )
-    _probe_model = _model("claude-haiku-4-5")
+    _probe_model = _model("claude-haiku-5-5")
     try:
         client.messages.create(model=_probe_model, max_tokens=5,
                                messages=[{"role": "user", "content": "Reply with: ready"}])

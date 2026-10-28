@@ -20,7 +20,7 @@ Here's what one run looks like:
 
 ```
 ==================================================================
-  MERIDIAN SCOREBOARD  ·  claude-sonnet-5  ·  5 trials/ticket
+  MERIDIAN SCOREBOARD  ·  claude-sonnet-5-5  ·  5 trials/ticket
 ==================================================================
 
   Ticket T-4471   routing: account (x4); account, billing (x1)
@@ -49,7 +49,7 @@ Work the exercise in the repo — open [`Diagnose_Fix_Brief.ipynb`](Diagnose_Fix
 ```bash
 export ANTHROPIC_API_KEY=your_key_here
 python3 Diagnose_Fix_Brief.py --trials 5                          # the baseline
-python3 Diagnose_Fix_Brief.py --trials 5 --model claude-opus-4-8  # is it the model?
+python3 Diagnose_Fix_Brief.py --trials 5 --model claude-sonnet-5-5  # is it the model?
 python3 Diagnose_Fix_Brief.py --ticket T-4471                     # watch one run end to end
 python3 Diagnose_Fix_Brief.py --holdout --trials 3                # does your fix hold up?
 ```
